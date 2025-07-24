@@ -1,5 +1,8 @@
 const rssService = require("../services/rssService");
 
+const NodeCache = require("node-cache");
+const cache = new NodeCache();
+
 const rssMap = {
   latestNews: [
     {
@@ -102,13 +105,24 @@ const rssMap = {
 };
 
 exports.getHome = async (req, res) => {
-  const allNews = [];
-
-  for (const feed of Object.keys(rssMap)) {
-    const news = await rssService.fetchRSS(rssMap[feed], 2);
-    news.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-    allNews.push({ [feed]: [...news] });
+  const cached = cache.get("homeData");
+  if (cached) {
+    return res.json(cached);
   }
 
-  res.json(allNews);
+  try {
+    const fetchTasks = Object.entries(rssMap).map(async ([key, feeds]) => {
+      const news = await rssService.fetchRSS(feeds, 2);
+      return { [key]: news };
+    });
+
+    const results = await Promise.all(fetchTasks);
+    const allNews = Object.assign({}, ...results);
+
+    cache.set("homeData", allNews, 180); // cache 3 phút
+    res.json(allNews);
+  } catch (err) {
+    console.error("Lỗi khi xử lý trang chủ:", err.message);
+    res.status(500).json({ error: "Lỗi khi tải trang chủ" });
+  }
 };

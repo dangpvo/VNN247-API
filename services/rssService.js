@@ -35,41 +35,37 @@ async function fetchRssFeeds(feedUrls = []) {
 }
 
 async function fetchRSS(feedUrls = [], cutItems = 0) {
-  const allItems = [];
-
-  for (const feed of feedUrls) {
+  const promises = feedUrls.map(async (feed) => {
     const cached = cache.get(feed.url);
     if (cached) {
-      if (cutItems !== 0) {
-        allItems.push(...cached.slice(0, cutItems));
-      } else {
-        allItems.push(...cached);
-      }
+      return cutItems ? cached.slice(0, cutItems) : cached;
     }
 
     try {
-      const res = await axios.get(feed.url);
+      const res = await axios.get(feed.url, {
+        timeout: 5000,
+        headers: { "User-Agent": "Mozilla/5.0" },
+      }); // timeout 8s
       const parsed = await parser.parseStringPromise(res.data);
 
-      const items = parsed.rss.channel.item.map((item) => {
-        return RssUtils.normalizeItem(
-          item,
-          feed.source,
-          parsed.rss.channel.pubDate
-        );
-      });
+      const items = parsed.rss.channel.item.map((item) =>
+        RssUtils.normalizeItem(item, feed.source, parsed.rss.channel.pubDate)
+      );
 
       cache.set(feed.url, items);
-
-      if (cutItems !== 0) {
-        allItems.push(...items.slice(0, cutItems));
-      } else {
-        allItems.push(...items);
-      }
+      return cutItems ? items.slice(0, cutItems) : items;
     } catch (error) {
       console.error(`Lỗi tải RSS từ ${feed.source}`, error.message);
+      return []; // fallback empty array
     }
-  }
+  });
+
+  // Chờ tất cả hoàn thành (có thể thành công hoặc lỗi)
+  const results = await Promise.allSettled(promises);
+
+  const allItems = results
+    .filter((r) => r.status === "fulfilled")
+    .flatMap((r) => r.value);
 
   return allItems.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 }

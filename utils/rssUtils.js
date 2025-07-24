@@ -18,7 +18,8 @@ class RssUtils {
 
     // Nếu không có enclosure, tìm <img> trong description
     if (!image && item.description) {
-      const match = item.description.match(/<img[^>]+src="([^">]+)"/);
+      const match = item.description.match(/<img[^>]+src=['"]([^'"]+)['"]/);
+
       if (match && match[1]) {
         image = match[1];
       }
