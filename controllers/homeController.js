@@ -9,10 +9,10 @@ const rssMap = {
       source: "VnExpress",
       url: "https://vnexpress.net/rss/tin-moi-nhat.rss",
     },
-    {
-      source: "ThanhNien",
-      url: "https://thanhnien.vn/rss/chao-ngay-moi.rss",
-    },
+    // {
+    //   source: "ThanhNien",
+    //   url: "https://thanhnien.vn/rss/chao-ngay-moi.rss",
+    // },
   ],
   hotNews: [
     {
@@ -112,7 +112,8 @@ exports.getHome = async (req, res) => {
 
   try {
     const fetchTasks = Object.entries(rssMap).map(async ([key, feeds]) => {
-      const news = await rssService.fetchRSS(feeds, 2);
+      const noOfItems = key === "latestNews" ? 4 : key === "hotNews" ? 10 : 2;
+      const news = await rssService.fetchRSS(feeds, noOfItems);
       return { [key]: news };
     });
 
